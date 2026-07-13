@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/defenseunicorns/uds-cli/main/tasks.schema.json
+
+variables:
+  - name: VERSION
+    description: "Bundle version to build/publish (must match metadata.version in uds-bundle.yaml)"
+    default: "0.1.0"
+  - name: REGISTRY
+    description: "OCI registry namespace to publish to"
+    default: "ghcr.io/sam-delap"
+  - name: ARCH
+    description: "Target architecture"
+    default: "amd64"
+
+tasks:
+  - name: build
+    description: "Create the uds-core-bundle UDS bundle"
+    actions:
+      - cmd: uds create . --version ${VERSION} --architecture ${ARCH} --confirm
+
+  - name: publish
+    description: "Publish the built bundle to the OCI registry"
+    actions:
+      - cmd: uds publish uds-bundle-uds-core-bundle-${ARCH}-${VERSION}.tar.zst oci://${REGISTRY} --confirm
+
+  - name: deploy
+    description: "Deploy the uds-core-bundle to the current cluster"
+    actions:
+      - cmd: uds deploy uds-bundle-uds-core-bundle-${ARCH}-${VERSION}.tar.zst --confirm
+
+  - name: inspect
+    description: "Inspect the built bundle (SBOM, images, metadata)"
+    actions:
+      - cmd: uds inspect uds-bundle-uds-core-bundle-${ARCH}-${VERSION}.tar.zst
+
+  - name: lint
+    description: "Validate the UDS bundle definition by creating it (no cluster required)"
+    actions:
+      - cmd: uds create . --version ${VERSION} --architecture ${ARCH} --confirm

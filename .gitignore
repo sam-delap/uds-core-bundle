@@ -1,0 +1,10 @@
+# Zarf/UDS build artifacts
+*.tar.zst
+uds-bundle-*.tar.zst
+zarf-package-*.tar.zst
+
+# Zarf sboms
+zarf-sbom/
+
+# semantic-release / node
+node_modules/

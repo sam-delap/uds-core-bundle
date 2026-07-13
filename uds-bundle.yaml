@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/defenseunicorns/uds-cli/main/uds.schema.json
+
+kind: UDSBundle
+metadata:
+  name: uds-core-bundle
+  description: "Home lab UDS bundle: prerequisite services (MetalLB + cert-manager) plus selected UDS Core functional layers"
+  version: "0.1.0"
+
+packages:
+  - name: uds-prereq-services
+    repository: ghcr.io/sam-delap/uds-prereq-services
+    ref: 1.0.1
+    optionalComponents:
+      - metallb-config
+      - cert-manager-config
+
+  - name: core-base
+    repository: ghcr.io/defenseunicorns/packages/uds/core-base
+    ref: 1.8.0-upstream
+    overrides:
+      istio-tenant-gateway:
+        uds-istio-config:
+          values:
+            - path: tls.credentialName
+              value: gateway-tls
+      istio-admin-gateway:
+        uds-istio-config:
+          values:
+            - path: tls.credentialName
+              value: admin-gateway-tls
+
+  - name: uds-gateway-certs
+    repository: ghcr.io/sam-delap/uds-gateway-certs
+    ref: 1.0.0
+
+  - name: core-identity-authorization
+    repository: ghcr.io/defenseunicorns/packages/uds/core-identity-authorization
+    ref: 1.8.0-upstream
+
+  - name: core-metrics-server
+    repository: ghcr.io/defenseunicorns/packages/uds/core-metrics-server
+    ref: 1.8.0-upstream
+
+  - name: core-logging
+    repository: ghcr.io/defenseunicorns/packages/uds/core-logging
+    ref: 1.8.0-upstream
+
+  - name: core-monitoring
+    repository: ghcr.io/defenseunicorns/packages/uds/core-monitoring
+    ref: 1.8.0-upstream
