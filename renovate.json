@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "dependencyDashboard": true,
+  "semanticCommits": "enabled",
+  "semanticCommitScope": "deps",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track UDSBundle package OCI versions (repository: + ref:)",
+      "managerFilePatterns": ["/(^|/)uds-bundle\\.ya?ml$/"],
+      "matchStrings": [
+        "repository:\\s*(?<depName>\\S+)\\s*\\n\\s*ref:\\s*(?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "UDS-core packages share the 1.8.0-upstream line and move in lockstep",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/defenseunicorns/packages/uds/core-**"],
+      "groupName": "uds-core packages",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>\\w+))?$"
+    },
+    {
+      "description": "sam-delap prerequisite and gateway packages",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/sam-delap/**"],
+      "groupName": "sam-delap packages"
+    },
+    {
+      "description": "UDS postgres-operator package",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/uds-packages/postgres-operator"],
+      "groupName": "postgres-operator"
+    },
+    {
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "semanticCommitType": "fix"
+    },
+    {
+      "matchUpdateTypes": ["minor"],
+      "semanticCommitType": "feat"
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "semanticCommitType": "feat",
+      "commitMessagePrefix": "feat(deps)!:"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "image",
+      "commitMessagePrefix": "ci(image)"
+    }
+  ]
+}
