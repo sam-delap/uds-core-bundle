@@ -16,6 +16,7 @@ deployed in the correct dependency order from a single artifact.
 | 5     | `core-metrics-server`          | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-metrics-server`         |
 | 6     | `core-logging`                 | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-logging`                |
 | 7     | `core-monitoring`              | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-monitoring`             |
+| 8     | `postgres-operator`            | `1.15.1-uds.5-upstream` | `ghcr.io/uds-packages/postgres-operator`                    |
 
 All UDS Core layers are pinned to the latest published **`upstream`** flavor, `1.8.0`.
 Per UDS guidance, every core layer uses the **same version** for compatibility.
@@ -96,6 +97,92 @@ kubectl create secret generic cloudflare-api-token \
 The token needs `Zone:DNS:Edit` permission for `sams-club-it.com`. Create it after the
 first deploy (the `cert-manager` namespace is created by the prereq); cert-manager then
 issues the gateway certs and Istio hot-reloads them.
+
+## Postgres datastores (two-phase: embedded → Postgres)
+
+Keycloak and Grafana are the only services in these layers that use a SQL database.
+Both default to embedded storage (Keycloak `devMode`/H2, Grafana SQLite) and both can be
+switched to external Postgres provisioned in-cluster by the bundled `postgres-operator`.
+
+The switch is driven entirely by `uds-config.yaml` — the **same bundle artifact** produces
+either state depending on the variables at deploy time. No rebuild is needed between phases.
+
+Ordering: `postgres-operator` deploys **last**. It requires `core-base` (Istio, UDS
+Operator, Policy Engine) to exist first.
+
+### Phase 1 — embedded (default)
+
+Deploy with the stock `uds-config.yaml`. All Postgres variables default to empty/false:
+the operator installs but provisions no cluster, Keycloak runs in `devMode`, Grafana on
+SQLite. Validate Core, then move to Phase 2.
+
+### Phase 2 — cut over to Postgres
+
+> **State reset:** switching backends does not migrate data. Keycloak re-seeds the `uds`
+> realm from the identity-config image and Grafana re-provisions dashboards from
+> ConfigMaps, so declarative state is restored automatically; ad-hoc runtime data is lost.
+
+1. Add the block below to `uds-config.yaml`.
+2. Read the operator-generated Grafana password and export it (never commit it):
+
+   ```bash
+   export UDS_GF_PG_PASSWORD="$(kubectl get secret grafana.pg-cluster.credentials.postgresql.acid.zalan.do \
+     -n grafana -o jsonpath='{.data.password}' | base64 -d)"
+   ```
+
+3. Redeploy the same tarball: `uds run deploy`.
+
+```yaml
+shared:
+  domain: uds.sams-club-it.com
+variables:
+  postgres-operator:
+    pg_cluster_enabled: true
+    pg_users:
+      keycloak.keycloak: []
+      grafana.grafana: []
+    pg_databases:
+      keycloakdb: keycloak.keycloak
+      grafanadb: grafana.grafana
+  core-identity-authorization:
+    # Full map — replaces the chart subtree, so include every field.
+    kc_postgresql:
+      host: pg-cluster.postgres-operator.svc.cluster.local
+      port: 5432
+      database: keycloakdb
+      internal:
+        enabled: true
+        remoteNamespace: postgres-operator
+        remoteSelector:
+          application: spilo
+      secretRef:
+        username:
+          name: keycloak.pg-cluster.credentials.postgresql.acid.zalan.do
+          key: username
+        password:
+          name: keycloak.pg-cluster.credentials.postgresql.acid.zalan.do
+          key: password
+  core-monitoring:
+    gf_postgresql:
+      host: pg-cluster.postgres-operator.svc.cluster.local
+      port: 5432
+      database: grafanadb
+      user: grafana
+      ssl_mode: require
+      internal:
+        enabled: true
+        remoteNamespace: postgres-operator
+        remoteSelector:
+          application: spilo
+    # gf_pg_password supplied via UDS_GF_PG_PASSWORD (do not commit)
+```
+
+Notes:
+- Confirm the operator secret name and `remoteSelector` against your cluster; Zalando uses
+  `{user}.{cluster}.credentials.postgresql.acid.zalan.do` and pod label `application: spilo`.
+- Keycloak's `postgresql` map override replaces the whole subtree — keep the map complete.
+- Grafana's chart has no `secretRef`; its password is a plaintext value sourced from the
+  `GF_PG_PASSWORD` variable (env `UDS_GF_PG_PASSWORD` recommended).
 
 ## Building, deploying & publishing
 

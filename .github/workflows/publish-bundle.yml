@@ -1,0 +1,32 @@
+name: publish-bundle
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Publish bundle to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install UDS CLI
+        uses: defenseunicorns/setup-uds@v1.0.0
+
+      - name: Login to GHCR
+        run: uds zarf tools registry login -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}" ghcr.io
+
+      - name: Create and publish the bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          uds create . --confirm --version "$VERSION"
+          uds publish uds-bundle-*.tar.zst "oci://ghcr.io/sam-delap"

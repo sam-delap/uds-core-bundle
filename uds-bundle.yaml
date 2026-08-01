@@ -36,6 +36,15 @@ packages:
   - name: core-identity-authorization
     repository: ghcr.io/defenseunicorns/packages/uds/core-identity-authorization
     ref: 1.8.0-upstream
+    overrides:
+      keycloak:
+        keycloak:
+          variables:
+            # Empty map = embedded devMode. Phase 2 map must be complete (replaces subtree).
+            - name: KC_POSTGRESQL
+              path: postgresql
+              description: "Keycloak external Postgres map (empty = embedded devMode)"
+              default: {}
 
   - name: core-metrics-server
     repository: ghcr.io/defenseunicorns/packages/uds/core-metrics-server
@@ -48,3 +57,52 @@ packages:
   - name: core-monitoring
     repository: ghcr.io/defenseunicorns/packages/uds/core-monitoring
     ref: 1.8.0-upstream
+    overrides:
+      grafana:
+        grafana:
+          variables:
+            # Non-secret Grafana postgresql fields (host, database, user, port, ssl_mode,
+            # internal). Empty map = embedded SQLite. Phase 2 map must be complete.
+            - name: GF_POSTGRESQL
+              path: postgresql
+              description: "Grafana external Postgres map (empty = embedded SQLite)"
+              default: {}
+            # Password kept separate + sensitive; source via UDS_GF_PG_PASSWORD, never commit.
+            - name: GF_PG_PASSWORD
+              path: postgresql.password
+              description: "Grafana Postgres password (set via env/--set, not committed)"
+              default: ""
+              sensitive: true
+
+  - name: postgres-operator
+    repository: ghcr.io/uds-packages/postgres-operator
+    ref: 1.15.1-uds.5-upstream
+    overrides:
+      postgres-operator:
+        uds-postgres-config:
+          variables:
+            # Phase 1: no cluster. Phase 2: set true + populate users/databases in uds-config.
+            - name: PG_CLUSTER_ENABLED
+              path: postgresql.enabled
+              description: "Provision the default Postgresql cluster CR"
+              default: false
+            - name: PG_TEAM_ID
+              path: postgresql.teamId
+              default: "uds"
+            - name: PG_VOLUME_SIZE
+              path: postgresql.volume.size
+              default: "5Gi"
+            - name: PG_INSTANCES
+              path: postgresql.numberOfInstances
+              default: 2
+            - name: PG_VERSION
+              path: postgresql.version
+              default: "17"
+            - name: PG_USERS
+              path: postgresql.users
+              description: "Map of {namespace}.{username}: [] to create"
+              default: {}
+            - name: PG_DATABASES
+              path: postgresql.databases
+              description: "Map of dbname: {namespace}.{username}"
+              default: {}

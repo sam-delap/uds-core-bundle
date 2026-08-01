@@ -53,6 +53,8 @@ Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
   namespaces and the prereq ClusterIssuers to exist.
 - **`core-monitoring` must come after `core-identity-authorization`** — monitoring
   provides user login and depends on identity/auth. Keep it last.
+- **`postgres-operator` must come last** — after `core-monitoring`. It needs `core-base`
+  (Istio, UDS Operator, Policy Engine) to exist. It is the only app package in the bundle.
 - All UDS Core layers must share the **same version/flavor** (`1.8.0-upstream`). If you
   bump one, bump them all together.
 
@@ -66,6 +68,22 @@ Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
 - `uds-gateway-certs` is pinned to a published tag
   (`ghcr.io/sam-delap/uds-gateway-certs:1.0.0`). Its `DOMAIN` / `CERT_ISSUER` Zarf vars
   default to `uds.sams-club-it.com` / `letsencrypt-staging`.
+- `postgres-operator` is pinned to the latest published **`upstream`** tag
+  (`ghcr.io/uds-packages/postgres-operator:1.15.1-uds.5-upstream`). Discover with:
+  `zarf tools registry ls ghcr.io/uds-packages/postgres-operator | grep -- -upstream$`.
+
+## Postgres datastores (two-phase)
+
+- Only **Keycloak** and **Grafana** use SQL. Both default to embedded storage and can be
+  switched to external Postgres (provisioned in-cluster by `postgres-operator`) purely via
+  `uds-config.yaml` variables — the same bundle artifact serves both phases, no rebuild.
+- Bundle variables (empty/false defaults): `postgres-operator` exposes `pg_cluster_enabled`,
+  `pg_users`, `pg_databases`, etc.; `core-identity-authorization` exposes `kc_postgresql`
+  (whole `postgresql` map); `core-monitoring` exposes `gf_postgresql` map + sensitive
+  `gf_pg_password`.
+- The `kc_postgresql` / `gf_postgresql` map overrides **replace the whole chart subtree** —
+  Phase 2 maps must be complete. Grafana password is env-sourced (`UDS_GF_PG_PASSWORD`),
+  never committed. See README for the Phase 2 block.
 
 ## Out of scope for this repo
 
