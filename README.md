@@ -13,10 +13,7 @@ deployed in the correct dependency order from a single artifact.
 | 2     | `core-base`                    | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-base`                   |
 | 3     | `uds-gateway-certs`            | `1.0.0`          | `ghcr.io/sam-delap/uds-gateway-certs`                              |
 | 4     | `core-identity-authorization`  | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-identity-authorization` |
-| 5     | `core-metrics-server`          | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-metrics-server`         |
-| 6     | `core-logging`                 | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-logging`                |
-| 7     | `core-monitoring`              | `1.8.0-upstream` | `ghcr.io/defenseunicorns/packages/uds/core-monitoring`             |
-| 8     | `postgres-operator`            | `1.15.1-uds.5-upstream` | `ghcr.io/uds-packages/postgres-operator`                    |
+| 5     | `postgres-operator`            | `1.15.1-uds.5-upstream` | `ghcr.io/uds-packages/postgres-operator`                    |
 
 All UDS Core layers are pinned to the latest published **`upstream`** flavor, `1.8.0`.
 Per UDS guidance, every core layer uses the **same version** for compatibility.
@@ -39,8 +36,8 @@ zarf init (stock)
   `local-path` PVCs.
 - **`uds-gateway-certs` runs right after `core-base`** — it needs the Istio gateway
   namespaces and the prereq ClusterIssuers to exist.
-- **`core-monitoring` is last.** It provides user login and therefore depends on
-  `core-identity-authorization`.
+- **`postgres-operator` is last.** It requires `core-base` (Istio, UDS Operator,
+  Policy Engine) to exist first.
 
 See the UDS Core
 [prerequisites](https://uds.defenseunicorns.com/reference/uds-core/prerequisites/) and
@@ -105,9 +102,9 @@ issues the gateway certs and Istio hot-reloads them.
 
 ## Postgres datastores (two-phase: embedded → Postgres)
 
-Keycloak and Grafana are the only services in these layers that use a SQL database.
-Both default to embedded storage (Keycloak `devMode`/H2, Grafana SQLite) and both can be
-switched to external Postgres provisioned in-cluster by the bundled `postgres-operator`.
+Keycloak is the only bundled Core service that uses a SQL database. It defaults to
+embedded storage (`devMode`/H2) and can be switched to external Postgres provisioned
+in-cluster by the bundled `postgres-operator`.
 
 The switch is driven entirely by `uds-config.yaml` — the **same bundle artifact** produces
 either state depending on the variables at deploy time. No rebuild is needed between phases.
@@ -118,24 +115,17 @@ Operator, Policy Engine) to exist first.
 ### Phase 1 — embedded (default)
 
 Deploy with the stock `uds-config.yaml`. All Postgres variables default to empty/false:
-the operator installs but provisions no cluster, Keycloak runs in `devMode`, Grafana on
-SQLite. Validate Core, then move to Phase 2.
+the operator installs but provisions no cluster, and Keycloak runs in `devMode`.
+Validate Core, then move to Phase 2.
 
 ### Phase 2 — cut over to Postgres
 
 > **State reset:** switching backends does not migrate data. Keycloak re-seeds the `uds`
-> realm from the identity-config image and Grafana re-provisions dashboards from
-> ConfigMaps, so declarative state is restored automatically; ad-hoc runtime data is lost.
+> realm from the identity-config image, so declarative state is restored automatically;
+> ad-hoc runtime data is lost.
 
 1. Add the block below to `uds-config.yaml`.
-2. Read the operator-generated Grafana password and export it (never commit it):
-
-   ```bash
-   export UDS_GF_PG_PASSWORD="$(kubectl get secret grafana.pg-cluster.credentials.postgresql.acid.zalan.do \
-     -n grafana -o jsonpath='{.data.password}' | base64 -d)"
-   ```
-
-3. Redeploy the same tarball: `uds run deploy`.
+2. Redeploy the same tarball: `uds run deploy`.
 
 ```yaml
 shared:
@@ -145,10 +135,8 @@ variables:
     pg_cluster_enabled: true
     pg_users:
       keycloak.keycloak: []
-      grafana.grafana: []
     pg_databases:
       keycloakdb: keycloak.keycloak
-      grafanadb: grafana.grafana
   core-identity-authorization:
     # Full map — replaces the chart subtree, so include every field.
     kc_postgresql:
@@ -167,41 +155,26 @@ variables:
         password:
           name: keycloak.pg-cluster.credentials.postgresql.acid.zalan.do
           key: password
-  core-monitoring:
-    gf_postgresql:
-      host: pg-cluster.postgres-operator.svc.cluster.local
-      port: 5432
-      database: grafanadb
-      user: grafana
-      ssl_mode: require
-      internal:
-        enabled: true
-        remoteNamespace: postgres-operator
-        remoteSelector:
-          application: spilo
-    # gf_pg_password supplied via UDS_GF_PG_PASSWORD (do not commit)
 ```
 
 Notes:
 - Confirm the operator secret name and `remoteSelector` against your cluster; Zalando uses
   `{user}.{cluster}.credentials.postgresql.acid.zalan.do` and pod label `application: spilo`.
 - Keycloak's `postgresql` map override replaces the whole subtree — keep the map complete.
-- Grafana's chart has no `secretRef`; its password is a plaintext value sourced from the
-  `GF_PG_PASSWORD` variable (env `UDS_GF_PG_PASSWORD` recommended).
 
 ## Building, deploying & publishing
 
 Requires `uds` (uds-cli) and `zarf` on PATH.
 
 ```bash
-uds run build   --set VERSION=0.1.0   # create the bundle artifact
-uds run deploy  --set VERSION=0.1.0   # deploy to the current cluster
-uds run publish --set VERSION=0.1.0   # push to the OCI registry
-uds run inspect --set VERSION=0.1.0   # inspect SBOM / images / metadata
-uds run lint    --set VERSION=0.1.0   # validate the bundle definition
+uds run build   --set VERSION=1.0.1   # create the bundle artifact
+uds run deploy  --set VERSION=1.0.1   # deploy to the current cluster
+uds run publish --set VERSION=1.0.1   # push to the OCI registry
+uds run inspect --set VERSION=1.0.1   # inspect SBOM / images / metadata
+uds run lint    --set VERSION=1.0.1   # validate the bundle definition
 ```
 
-Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
+Task vars (`tasks.yaml`): `VERSION` (default `1.0.1`), `REGISTRY`
 (`ghcr.io/sam-delap`), `ARCH` (`amd64`).
 
 ## Versioning

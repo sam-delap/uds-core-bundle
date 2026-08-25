@@ -8,8 +8,7 @@ already-published OCI artifacts into one deployable bundle:
 - `uds-prereq-services` (MetalLB + cert-manager prerequisite services),
 - `uds-gateway-certs` (wildcard cert-manager `Certificate`s for the Istio tenant/admin
   gateways), and
-- selected **UDS Core functional layers** (`core-base`, `core-identity-authorization`,
-  `core-metrics-server`, `core-logging`, `core-monitoring`).
+- selected **UDS Core functional layers** (`core-base`, `core-identity-authorization`).
 
 The bundle only references and orders published packages; it contains no Helm charts or
 manifests of its own.
@@ -29,12 +28,12 @@ manifests of its own.
 Requires `uds` (uds-cli) and `zarf` on PATH.
 
 ```bash
-uds run lint   --set VERSION=0.1.0   # validate before committing
-uds run build  --set VERSION=0.1.0
-uds run deploy --set VERSION=0.1.0
+uds run lint   --set VERSION=1.0.1   # validate before committing
+uds run build  --set VERSION=1.0.1
+uds run deploy --set VERSION=1.0.1
 ```
 
-Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
+Task vars (`tasks.yaml`): `VERSION` (default `1.0.1`), `REGISTRY`
 (`ghcr.io/sam-delap`), `ARCH` (`amd64`).
 
 ## Versioning / release
@@ -53,9 +52,7 @@ Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
   override for `local-path-provisioner` helper pods lives on this package.
 - **`uds-gateway-certs` must come right after `core-base`** — it needs the Istio gateway
   namespaces and the prereq ClusterIssuers to exist.
-- **`core-monitoring` must come after `core-identity-authorization`** — monitoring
-  provides user login and depends on identity/auth. Keep it last.
-- **`postgres-operator` must come last** — after `core-monitoring`. It needs `core-base`
+- **`postgres-operator` must come last** — after the selected Core layers. It needs `core-base`
   (Istio, UDS Operator, Policy Engine) to exist. It is the only app package in the bundle.
 - All UDS Core layers must share the **same version/flavor** (`1.8.0-upstream`). If you
   bump one, bump them all together.
@@ -76,16 +73,15 @@ Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
 
 ## Postgres datastores (two-phase)
 
-- Only **Keycloak** and **Grafana** use SQL. Both default to embedded storage and can be
-  switched to external Postgres (provisioned in-cluster by `postgres-operator`) purely via
-  `uds-config.yaml` variables — the same bundle artifact serves both phases, no rebuild.
+- Only **Keycloak** uses SQL among the currently selected layers. It defaults to embedded
+  storage and can be switched to external Postgres (provisioned in-cluster by
+  `postgres-operator`) purely via `uds-config.yaml` variables — the same bundle artifact
+  serves both phases, no rebuild.
 - Bundle variables (empty/false defaults): `postgres-operator` exposes `pg_cluster_enabled`,
   `pg_users`, `pg_databases`, etc.; `core-identity-authorization` exposes `kc_postgresql`
-  (whole `postgresql` map); `core-monitoring` exposes `gf_postgresql` map + sensitive
-  `gf_pg_password`.
-- The `kc_postgresql` / `gf_postgresql` map overrides **replace the whole chart subtree** —
-  Phase 2 maps must be complete. Grafana password is env-sourced (`UDS_GF_PG_PASSWORD`),
-  never committed. See README for the Phase 2 block.
+  (whole `postgresql` map).
+- The `kc_postgresql` map override **replaces the whole chart subtree** — Phase 2 maps must
+  be complete. See README for the Phase 2 block.
 
 ## Out of scope for this repo
 
