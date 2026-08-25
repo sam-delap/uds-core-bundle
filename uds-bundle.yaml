@@ -4,7 +4,7 @@ kind: UDSBundle
 metadata:
   name: uds-core-bundle
   description: "Home lab UDS bundle: prerequisite services (MetalLB + cert-manager) plus selected UDS Core functional layers"
-  version: "0.1.0"
+  version: "1.0.1"
 
 packages:
   - name: uds-prereq-services
@@ -63,34 +63,6 @@ packages:
               path: postgresql
               description: "Keycloak external Postgres map (empty = embedded devMode)"
               default: {}
-
-  - name: core-metrics-server
-    repository: ghcr.io/defenseunicorns/packages/uds/core-metrics-server
-    ref: 1.8.0-upstream
-
-  - name: core-logging
-    repository: ghcr.io/defenseunicorns/packages/uds/core-logging
-    ref: 1.8.0-upstream
-
-  - name: core-monitoring
-    repository: ghcr.io/defenseunicorns/packages/uds/core-monitoring
-    ref: 1.8.0-upstream
-    overrides:
-      grafana:
-        grafana:
-          variables:
-            # Non-secret Grafana postgresql fields (host, database, user, port, ssl_mode,
-            # internal). Empty map = embedded SQLite. Phase 2 map must be complete.
-            - name: GF_POSTGRESQL
-              path: postgresql
-              description: "Grafana external Postgres map (empty = embedded SQLite)"
-              default: {}
-            # Password kept separate + sensitive; source via UDS_GF_PG_PASSWORD, never commit.
-            - name: GF_PG_PASSWORD
-              path: postgresql.password
-              description: "Grafana Postgres password (set via env/--set, not committed)"
-              default: ""
-              sensitive: true
 
   - name: postgres-operator
     repository: ghcr.io/uds-packages/postgres-operator

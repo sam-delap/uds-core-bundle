@@ -3,7 +3,7 @@
 variables:
   - name: VERSION
     description: "Bundle version to build/publish (must match metadata.version in uds-bundle.yaml)"
-    default: "0.1.0"
+    default: "1.0.1"
   - name: REGISTRY
     description: "OCI registry namespace to publish to"
     default: "ghcr.io/sam-delap"
