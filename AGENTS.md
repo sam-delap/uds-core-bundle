@@ -17,7 +17,8 @@ manifests of its own.
 ## Layout
 
 - `uds-bundle.yaml` — the bundle definition (source of truth for the package list, refs,
-  ordering, and the `core-base` gateway `credentialName` overrides).
+  ordering, the `core-base` gateway `credentialName` overrides, and the narrow
+  `local-path-provisioner` UDS policy exemption).
 - `uds-config.yaml` — cluster-wide config; sets `shared.domain`. Auto-loaded by `uds
   deploy` from CWD. No secrets.
 - `tasks.yaml` — `uds run` task runner (build/deploy/publish/inspect/lint).
@@ -48,7 +49,8 @@ Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
 - **`uds-prereq-services` must be first** — MetalLB must exist before `core-base` so
   Istio LoadBalancer ingress gateways get an address.
 - **`core-base` must be first among the core layers** — it provides Istio, the UDS
-  Operator, and the Policy Engine that all other layers assume.
+  Operator, and the Policy Engine that all other layers assume. The `uds-exemptions`
+  override for `local-path-provisioner` helper pods lives on this package.
 - **`uds-gateway-certs` must come right after `core-base`** — it needs the Istio gateway
   namespaces and the prereq ClusterIssuers to exist.
 - **`core-monitoring` must come after `core-identity-authorization`** — monitoring
@@ -89,4 +91,8 @@ Task vars (`tasks.yaml`): `VERSION` (default `0.1.0`), `REGISTRY`
 
 - **MetalLB policy Exemption** for the Policy Engine lives in the `uds-prereq-services`
   package (as a separate component), not here.
+- **local-path-provisioner policy Exemption** lives here as a `core-base` override because
+  the `Exemption` CRD and UDS policy engine are installed by `core-base`. Keep it limited
+  to `local-path-storage` `helper-pod.*` pods and only policies needed for local-path
+  helper pod host-path directory creation.
 - **Cloudflare API token Secret** is created out-of-band (see README); never commit it.

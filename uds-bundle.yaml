@@ -18,6 +18,24 @@ packages:
     repository: ghcr.io/defenseunicorns/packages/uds/core-base
     ref: 1.8.0-upstream
     overrides:
+      uds-exemptions:
+        uds-exemptions:
+          values:
+            - path: exemptions.custom
+              value:
+                - name: local-path-provisioner
+                  exemptions:
+                    - title: "local-path provisioner PV creation"
+                      description: "Allow the k3s local-path provisioner to create writable hostPath-backed PersistentVolumes for local-path PVCs. Scope is limited to the dynamically-created helper pods in local-path-storage."
+                      matcher:
+                        namespace: local-path-storage
+                        name: "^helper-pod.*"
+                        kind: pod
+                      policies:
+                        - RequireNonRootUser
+                        - DropAllCapabilities
+                        - RestrictVolumeTypes
+                        - RestrictHostPathWrite
       istio-tenant-gateway:
         uds-istio-config:
           values:

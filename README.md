@@ -33,7 +33,10 @@ zarf init (stock)
 - **MetalLB is a UDS Core prerequisite** — it must exist before `core-base` so Istio's
   ingress gateways (type `LoadBalancer`) can be assigned an address.
 - **`core-base` must be first** among the core layers. It provides Istio, the UDS
-  Operator, and the UDS Policy Engine that every other layer assumes.
+  Operator, and the UDS Policy Engine that every other layer assumes. This bundle also
+  injects a narrow `uds-exemptions` override into `core-base` so k3s
+  `local-path-provisioner` helper pods can create writable hostPath-backed PVs for
+  `local-path` PVCs.
 - **`uds-gateway-certs` runs right after `core-base`** — it needs the Istio gateway
   namespaces and the prereq ClusterIssuers to exist.
 - **`core-monitoring` is last.** It provides user login and therefore depends on
@@ -51,10 +54,12 @@ on-by-default config components (`metallb-config` IPAddressPool/L2Advertisement,
 `optionalComponents`. In a UDS bundle, optional components are only deployed when listed
 under `optionalComponents`.
 
-> **MetalLB policy exemption:** MetalLB's `speaker` pods require privileged Pod Security.
-> The UDS Core Policy Engine can block them on reconciliation/upgrade unless an
-> `Exemption` exists. This exemption is managed in the `uds-prereq-services` package (as a
-> separate component), not in this bundle.
+> **Policy exemptions:** MetalLB's `speaker` pods require privileged Pod Security; that
+> exemption is managed in the `uds-prereq-services` package. k3s
+> `local-path-provisioner` creates writable hostPath-backed PVs via short-lived
+> `helper-pod` pods in `local-path-storage`; this bundle adds a narrow `core-base`
+> `uds-exemptions` override for only those helper pods and only the policies needed to
+> preserve the helper pod's required host write behavior and root/capability defaults.
 
 ## Gateway TLS (`uds-gateway-certs`)
 
