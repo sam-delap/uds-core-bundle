@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 1
 
       - name: Install UDS CLI
-        uses: defenseunicorns/setup-uds@v1.0.0
+        uses: defenseunicorns/setup-uds@v1.0.2
 
       - name: Login to GHCR
         run: uds zarf tools registry login -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}" ghcr.io
