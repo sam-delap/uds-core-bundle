@@ -16,7 +16,7 @@ packages:
 
   - name: core-base
     repository: ghcr.io/defenseunicorns/packages/uds/core-base
-    ref: 1.8.0-upstream
+    ref: 1.14.1-upstream
     overrides:
       uds-exemptions:
         uds-exemptions:
@@ -53,7 +53,7 @@ packages:
 
   - name: core-identity-authorization
     repository: ghcr.io/defenseunicorns/packages/uds/core-identity-authorization
-    ref: 1.8.0-upstream
+    ref: 1.14.1-upstream
     overrides:
       keycloak:
         keycloak:
