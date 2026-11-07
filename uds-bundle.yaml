@@ -66,7 +66,7 @@ packages:
 
   - name: postgres-operator
     repository: ghcr.io/uds-packages/postgres-operator
-    ref: 1.15.1-uds.5-upstream
+    ref: 2.0.3-uds.5-upstream
     overrides:
       postgres-operator:
         uds-postgres-config:
